@@ -1,0 +1,3 @@
+Segundo texto ou ficheiro de texto para o programa.
+Primeira linha que possuí acêntos e çedilha.
+Fim do segundo ficheiro.

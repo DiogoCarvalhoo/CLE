@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h> 
+#include <stdbool.h>
+
 
 // Function to check if a char is vowel
 int check_vowel(char c) {
@@ -12,110 +14,198 @@ int check_vowel(char c) {
     }
 }
 
-
-char convert_multibyte(wchar_t c) {
-    switch (c) {
-        case L'à': c=L'a'; break;
-        case L'á': c=L'a'; break;
-        case L'â': c=L'a'; break;
-        case L'ã': c=L'a'; break;
-        
-        case L'Á': c=L'A'; break;
-        case L'À': c=L'A'; break;
-        case L'Â': c=L'A'; break;
-        case L'Ã': c=L'A'; break;
-        
-        case L'è': c=L'e';break;
-        case L'é': c=L'e';break;
-        case L'ê': c=L'e';break;
-        
-        case L'É': c=L'E';break;
-        case L'È': c=L'E';break;
-        case L'Ê': c=L'E';break;
-        
-        case L'í': c=L'i';break;
-        case L'ì': c=L'i';break;
-        
-        case L'Í': c=L'I';break;
-        case L'Ì': c=L'I';break;
-        
-        case L'ó': c=L'o'; break;
-        case L'ò': c=L'o'; break;
-        case L'ô': c=L'o'; break;
-        case L'õ': c=L'o'; break;
-        
-        case L'Ó': c=L'O'; break;
-        case L'Ò': c=L'O'; break;
-        case L'Ô': c=L'O'; break;
-        case L'Õ': c=L'O'; break;
-        
-        case L'ú': c=L'u';break;
-        case L'ù': c=L'u';break;
-        case L'ü': c=L'u';break;
-        
-        case L'Ú': c=L'U';break;
-        case L'Ù': c=L'U';break;
-        
-        case L'Ç': c=L'C';break;
-        case L'ç': c=L'C';break;
-
-        default:    break;
+// Function to check if a char is consonant
+int check_consonant(char c) {
+    if (c == 'b' || c == 'c' || c == 'd' || c == 'f' || c == 'g' || c == 'h' || c == 'j' || c == 'k' || c == 'l' || c == 'm' || c == 'n' || c == 'p' || c == 'q' || c == 'r' || c == 's' || c == 't' || c == 'v' || c == 'x' || c == 'y' || c == 'z' ) {
+        return 1;
+    } else {
+        return 0;
     }
-    return c;
 }
+
+
+//Function to convert decimal into hexadecimal
+char * decimalToHexa(int decimalnum) {
+    int quotient, remainder;
+    int j = 0;
+    char *hexadecimalnum =  malloc (sizeof (char) * 8);
+
+    quotient = decimalnum;
+ 
+    while (decimalnum != 0) {
+        remainder = decimalnum%16;
+        if(remainder<10)
+            remainder = remainder+48;
+        else
+            remainder = remainder+55;
+        hexadecimalnum[j] = remainder;
+        j++;
+        decimalnum = decimalnum/16;
+    }
+
+    char *finalnumber =  malloc (sizeof (char) * 8);
+    int k = 0;
+    for (int i = j-1 ;i>=0;i--) {
+	    finalnumber[k]  = hexadecimalnum[i];
+        k++;
+    }
+    return finalnumber;
+}
+
+
+
+//Function to convert special-char hexadecimal code in associated non special char. Example: Return 'i' when receiving hexadecimal code of 'í' 
+char convert_special_chars(char* code) {
+    
+    if (strcmp(code,"C3A1") == 0 || strcmp(code,"C3A0") == 0 || strcmp(code,"C3A2") == 0 || strcmp(code,"C3A3") == 0 || strcmp(code,"C381") == 0 || strcmp(code,"C380") == 0 || strcmp(code,"C382") == 0 || strcmp(code,"C383") == 0 ) {
+        return 'a';
+    }
+
+    if (strcmp(code,"C3A9") == 0 || strcmp(code,"C3A8") == 0 || strcmp(code,"C3AA") == 0 || strcmp(code,"C389") == 0 || strcmp(code,"C388") == 0 || strcmp(code,"C38A") == 0 ) {
+        return 'e';
+    }
+
+    if (strcmp(code,"C3AD") == 0 || strcmp(code,"C3AC") == 0 || strcmp(code,"C38D") == 0 || strcmp(code,"C38C") == 0 ) {
+        return 'i';
+    }
+
+    if (strcmp(code,"C3B3") == 0 || strcmp(code,"C3B2") == 0 || strcmp(code,"C3B4") == 0 || strcmp(code,"C3B5") == 0 || strcmp(code,"C393") == 0 || strcmp(code,"C392") == 0 || strcmp(code,"C394") == 0 || strcmp(code,"C395") == 0 ) {
+        return 'o';
+    }
+
+    if (strcmp(code,"C3BA") == 0 || strcmp(code,"C3B9") == 0 || strcmp(code,"C39A") == 0 || strcmp(code,"C399") == 0 ) {
+        return 'u';
+    }
+
+    if (strcmp(code,"C3A7") == 0 || strcmp(code,"C387") == 0 ) {
+        return 'c';
+    }
+}
+
+
+
+
+char *sliceString(char *str, int start, int end)
+{
+
+    int i;
+    int size = (end - start) + 2;
+    char *output = (char *)malloc(size * sizeof(char));
+
+    for (i = 0; start <= end; start++, i++)
+    {
+        output[i] = str[start];
+    }
+
+    output[size] = '\0';
+
+    return output;
+}
+
+
+
 
 
 // Function to check if a word only contains alphanumeric or _ characters 
-int check_word(unsigned char * word) {
-    printf("%s\n", word);
+int check_word(unsigned char * word, int * num_of_words_starting_with_vowel_chars, int * num_of_words_ending_with_consonant_chars, int * total_num_of_words) {
+
+    int chars_read = 0;
+    char firstChar;
+    char lastChar;
+
+    bool lastCharFlag = false;
 
     for (int i=0; word[i]; i++) {
-        wchar_t c = word[i];
+        
+
+        char finalChar;
+        char char_code[100] = "";
         wchar_t byte0 = word[i];
+
         if (byte0 & (1<<7) && byte0 & (1<<6)) {
+            // If char is multibyte char
+
+            // Calculate char hexadecimal code
+            char *result = decimalToHexa(word[i]);
+            strcat(char_code, result);
+            free(result);
             i += 1;
 
-            char byte_one[6]; 
-            byte_one[0] = word[i] & (1<<5);
-            byte_one[1] = word[i] & (1<<4);
-            byte_one[2] = word[i] & (1<<3);
-            byte_one[3] = word[i] & (1<<2);
-            byte_one[4] = word[i] & (1<<1);
-            byte_one[5] = word[i] & (1<<0);
-
-
             if (byte0 & (1<<5)) {
+
+                char *result = decimalToHexa(word[i]);
+                strcat(char_code, result);
+                free(result);
                 i += 1;
-                c += (wchar_t) word[i];
+
                 if (byte0 & (1<<4)) {
+                    char *result = decimalToHexa(word[i]);
+                    strcat(char_code, result);
+                    free(result);
                     i += 1;
-                    c += (wchar_t) word[i];
+
+                } else {
+                    char *result = decimalToHexa(word[i]);
+                    strcat(char_code, result);
+                    free(result);
                 }
             } else {
-                char final_char[11];
-                final_char[0] = byte0 & (1<<4);
-                final_char[1] = byte0 & (1<<3);
-                final_char[2] = byte0 & (1<<2);
-                final_char[3] = byte0 & (1<<1);
-                final_char[4] = byte0 & (1<<0);
-
-                strcat(final_char, byte_one);
+                char *result = decimalToHexa(word[i]);
+                strcat(char_code, result);
+                free(result);
             }
             
-            printf("sou multibyte");
-            if (c == L'É') {
-                printf("entrei qui scrlll");
+            // Transform special char hexadecimal code in associated non-special char.
+            char c = convert_special_chars(char_code);
+
+            // Verify if non-special char is alphanumeric or underscore characters
+            if (isalnum(c) == 0 && c != '_' ) {
+                return 0;
             }
-            c = convert_multibyte(c);
-            printf("%c\n", c);
-        } 
-        printf("%i\n",c);
-        if (isalnum(word[i]) == 0 && word[i] != '_' ) {
-            return 0;
+
+            finalChar = c;
+
+        } else {
+            // If char is not multibyte char
+
+            // Verify if char is alphanumeric or underscore characters
+            if (isalnum(word[i]) == 0 && word[i] != '_' ) {
+                return 0;
+            }
+
+            finalChar = word[i];
+
         }
+
+        if (chars_read == 0) {
+            firstChar = finalChar;
+        }
+        lastChar = finalChar;
+
+        chars_read++;
     }
+
+    *total_num_of_words =  *total_num_of_words + 1;
+
+    // Get first and last char of the word and convert to lowercase in order to facilitate the if conditions
+    //char first_char = tolower(*word);
+    //char last_char = tolower(*(word + strlen(word) - 1));
+    
+    //printf("First Char: %c\n",firstChar);
+    // Check if word starts with a vowel
+    if (check_vowel(firstChar)) {
+        *num_of_words_starting_with_vowel_chars = *num_of_words_starting_with_vowel_chars + 1;
+    } 
+    
+    //printf("Last Char: %c\n",lastChar);
+    // Check if word ends with a consonant
+    if (check_consonant(lastChar)) {
+        *num_of_words_ending_with_consonant_chars = *num_of_words_ending_with_consonant_chars + 1;
+    }
+
     return 1;
 }
+
 
 
 
@@ -147,7 +237,9 @@ int main(void)
         char delimit[] = " .?!,:;-()[]/“”\"‘’";
 
         fpointer = fopen(file_name, "r");
+
         if (fpointer == NULL)
+            //printf("It occoured an error while openning file: %s \n", file_name);  -> Se descomentar da erro pq?
             exit(EXIT_FAILURE);
 
         // Read file line by line
@@ -164,25 +256,10 @@ int main(void)
             // Iterate over all next words in the line
             while( word != NULL ) {
 
-                if (check_word(word)) {
+                //printf("New Word: %s\n", word);
 
-                    total_num_of_words += 1;
+                check_word(word, &num_of_words_starting_with_vowel_chars, &num_of_words_ending_with_consonant_chars, &total_num_of_words);
 
-                    // Get first and last char of the word and convert to lowercase in order to facilitate the if conditions
-                    char first_char = tolower(*word);
-                    char last_char = tolower(*(word + strlen(word) - 1));
-                    printf("%c\n",first_char);
-                    // Check if word starts with a vowel
-                    if (check_vowel(first_char)) {
-                        num_of_words_starting_with_vowel_chars += 1;
-                    } 
-                    
-                    // Check if word ends with a consonant
-                    if (check_vowel(last_char) == 0 && last_char >= 97 && last_char <= 122 ) {
-                        num_of_words_ending_with_consonant_chars += 1;
-                    }
-
-                }
                 // Get next word
                 word = strtok_r(NULL, delimit, &rest_words);
             }

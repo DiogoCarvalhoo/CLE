@@ -1,0 +1,3 @@
+Primeiro ficheiro de texto
+segunda linha
+fim do primeiro ficheiro de texto

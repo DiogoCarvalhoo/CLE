@@ -1,0 +1,3 @@
+Último ficheiro com texto.
+Teste de vírgulas, e outros caractéres como hífen em micro-ondas.
+Fim do último ficheiro com texto.
