@@ -135,8 +135,6 @@ char convert_special_chars(wchar_t c) {
     return c;
 }
 
-
-
 int main(int argc, char *argv[])
 {   
     setlocale(LC_ALL, "en_US.UTF-8");
