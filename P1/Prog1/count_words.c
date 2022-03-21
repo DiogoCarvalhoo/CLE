@@ -139,11 +139,11 @@ char convert_special_chars(wchar_t c) {
 
 int main(int argc, char *argv[])
 {   
-    char *locale = setlocale(LC_ALL, "en_US.UTF-8");
+    setlocale(LC_ALL, "en_US.UTF-8");
 
     // Timer
-    clock_t t;
-    t = clock();
+    double t0, t1, t2;
+    t2 = 0.0;
 
     // Iterate over all files passed by arguments
     for(int i=1;i<argc;i++){
@@ -166,7 +166,10 @@ int main(int argc, char *argv[])
             //printf("It occoured an error while openning file: %s \n", file_name);  -> Se descomentar da erro pq?
             exit(EXIT_FAILURE);
 
+        t0 = ((double) clock ()) / CLOCKS_PER_SEC;
+
         /*
+        Parse file contents.
         Approach given by the professor:
         For each char until the end of file.
             If inword = false:
@@ -220,6 +223,10 @@ int main(int argc, char *argv[])
             
         }
 
+        t1 = ((double) clock ()) / CLOCKS_PER_SEC;
+        t2 += t1 - t0;
+
+        // Close text file
         fclose(fpointer);
 
         // Print final results for current file
@@ -230,8 +237,6 @@ int main(int argc, char *argv[])
 
     }
 
-    t = clock() - t;
-    double time_taken = ((double)t)/CLOCKS_PER_SEC;
-    printf("\nElapsed time = %f s\n", time_taken);
+    printf("\nElapsed time = %.6f s\n", t2);
 }
 
