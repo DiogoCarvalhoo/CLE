@@ -10,7 +10,7 @@
 ## How to compile
 
 ```
-gcc -Wall -O3 -o count_words count_words.c chunks.c counters.c -lpthread -lm
+gcc -Wall -O3 -o count_words count_words.c chunks.c counters.c auxiliar_functions.c -lpthread -lm
 ```
 
 ## How to run

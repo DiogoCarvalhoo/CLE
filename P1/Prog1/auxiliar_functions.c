@@ -1,8 +1,10 @@
 /**
- *  \file count_words_functions.h (interface file)
+ *  \file auxiliar_functions.c (implementation file)
  *
  *  \brief Problem name: Count words.
  *
+ *  In this file the 8 boolean functions used to process a chunk are implemented and a function responsible of
+ *  convert a multibyte char to a single byte char.
  *  Synchronization based on monitors.
  *  Both threads and the monitor are implemented using the pthread library which enables the creation of a
  *  monitor of the Lampson / Redell type.

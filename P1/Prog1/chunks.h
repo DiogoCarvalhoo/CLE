@@ -1,18 +1,20 @@
 /**
  *  \file chunks.h (interface file)
  *
- *  \brief Problem name: Producers / Consumers.
+ *  \brief Problem name: Count Words.
  *
+ *  In this file the functions to save/get the information of each chunk are defined.
  *  Synchronization based on monitors.
  *  Both threads and the monitor are implemented using the pthread library which enables the creation of a
  *  monitor of the Lampson / Redell type.
  *
  *  Data transfer region implemented as a monitor.
  *
- *  Definition of the operations carried out by the producers / consumers:
+ *  Definition of the operations carried out by the main thread:
  *     \li putChunk
- *     \li getChunk
  *     \li endChunk.
+ *  Definition of the operations carried out by the worker threads:
+ *     \li getChunk
  *
  *  \author Diogo Filipe Amaral Carvalho - 92969 - April 2022
  *  \author Rafael Ferreira Baptista - 93367 - April 2022
@@ -35,7 +37,7 @@ extern void endChunk();
  *
  *  Operation carried out by the main thread.
  *
- *  \param file_pointer pointer to the start of the chunk
+ *  \param buffer pointer to the start of the chunk
  *  \param chunk_size number of bytes of the chunk
  *  \param file_id file identifier
  */
@@ -56,7 +58,7 @@ extern struct ChunkInfo getChunk (unsigned int workerId);
 extern struct ChunkInfo {
    int fileId;        /* file identifier */  
    int chunk_size;    /* Number of bytes of the chunk */
-   unsigned char * file_pointer;  /* Pointer to the start of the chunk */
+   unsigned char * chunk_pointer;  /* Pointer to the start of the chunk */
 } ChunkInfo;
 
 #endif /* CHUNKS_H */

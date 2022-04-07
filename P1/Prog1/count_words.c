@@ -26,7 +26,7 @@
 #include "chunks.h"
 #include "probConst.h"
 #include "counters.h"
-#include "count_words_functions.h"
+#include "auxiliar_functions.h"
 
 
 /** \brief worker life cycle routine */
@@ -166,6 +166,8 @@ int main(int argc, char *argv[])
             number_of_processed_bytes += size_of_current_chunk;
         }
 
+        // Close file
+        fclose(fpointer);
     }
 
     /* Save a struct in fifo for each thread to know that there are no more chunks to process */
@@ -244,7 +246,7 @@ static void processChunk(struct ChunkInfo * chunkinfo, int * total_num_of_words,
     // Flag used to check if the last char of a word was consonant or not     
     bool lastCharWasConsonant = false;
 
-    //printf("Chunk data: %s\n", (*chunkinfo).file_pointer);
+    //printf("Chunk data: %s\n", (*chunkinfo).chunk_pointer);
     unsigned char byte;             // Variable used to store each byte of the chunk
     int i = 0;                      // Counter to make sure to read only chunk_size bytes
     unsigned char *character;       // Initialization of variable used to store the char (singlebyte or multibyte)
@@ -252,30 +254,30 @@ static void processChunk(struct ChunkInfo * chunkinfo, int * total_num_of_words,
     while (i < (*chunkinfo).chunk_size) {
 
         // Construction of the char
-        byte = (*chunkinfo).file_pointer[i];        // Read a byte
+        byte = (*chunkinfo).chunk_pointer[i];        // Read a byte
         character = malloc((1+1)* sizeof(unsigned char) );      // Allocate memory to store the character. For now, it is a single byte
         character[0] = byte;
 
         if (byte > 192 && byte < 224) {   // 2-byte char
             i++;
             character = realloc(character, (2+1)* sizeof(unsigned char) );
-            character[1] = (*chunkinfo).file_pointer[i];
+            character[1] = (*chunkinfo).chunk_pointer[i];
             character[2] = 0;
         } else if ( byte > 224 && byte < 240) {     // 3-byte char
             character = realloc(character, (3+1)* sizeof(unsigned char) );
             i++;
-            character[1] = (*chunkinfo).file_pointer[i];
+            character[1] = (*chunkinfo).chunk_pointer[i];
             i++;
-            character[2] = (*chunkinfo).file_pointer[i];
+            character[2] = (*chunkinfo).chunk_pointer[i];
             character[3] = 0;
         } else if ( byte > 240 ) {     // 4-byte char
             character = realloc(character, (4+1)* sizeof(unsigned char) );
             i++;
-            character[1] = (*chunkinfo).file_pointer[i];
+            character[1] = (*chunkinfo).chunk_pointer[i];
             i++;
-            character[2] = (*chunkinfo).file_pointer[i];
+            character[2] = (*chunkinfo).chunk_pointer[i];
             i++;
-            character[3] = (*chunkinfo).file_pointer[i];
+            character[3] = (*chunkinfo).chunk_pointer[i];
             character[4] = 0;
         } else {        // single byte char
             character[1] = 0;

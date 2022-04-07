@@ -3,16 +3,18 @@
  *
  *  \brief Problem name: Count Words.
  *
+ *  In this file the functions to save/get the information of each chunk are implemented.
  *  Synchronization based on monitors.
  *  Both threads and the monitor are implemented using the pthread library which enables the creation of a
  *  monitor of the Lampson / Redell type.
  *
  *  Data transfer region implemented as a monitor.
  *
- *  Definition of the operations carried out by the producers / consumers:
+ *  Definition of the operations carried out by the main thread:
  *     \li putChunk
- *     \li getChunk
  *     \li endChunk.
+ *  Definition of the operations carried out by the worker threads:
+ *     \li getChunk
  *
  *  \author Diogo Filipe Amaral Carvalho - 92969 - April 2022
  *  \author Rafael Ferreira Baptista - 93367 - April 2022
@@ -31,7 +33,7 @@
 struct ChunkInfo {
    int fileId;        /* file identifier */  
    int chunk_size;    /* Number of bytes of the chunk */
-   unsigned char * file_pointer;  /* Pointer to the start of the chunk */
+   unsigned char * chunk_pointer;  /* Pointer to the start of the chunk */
 };
 
 /** \brief main producer thread return status */
@@ -105,7 +107,7 @@ void endChunk() {
 
   mem[ii].fileId = -1;                                                                   /* store values in the FIFO */
   mem[ii].chunk_size = -1;
-  mem[ii].file_pointer =  NULL;
+  mem[ii].chunk_pointer =  NULL;
   ii = (ii + 1) % K;
   full = (ii == ri);
 
@@ -130,7 +132,7 @@ void endChunk() {
  *
  *  Operation carried out by the main thread.
  *
- *  \param file_pointer pointer to the start of the chunk
+ *  \param buffer pointer to the start of the chunk
  *  \param chunk_size number of bytes of the chunk
  *  \param file_id file identifier
  */
@@ -155,7 +157,7 @@ void putChunk (unsigned char * buffer, unsigned int chunk_size, unsigned int fil
 
   mem[ii].fileId = file_id;                                                              /* store values in the FIFO */
   mem[ii].chunk_size = chunk_size;
-  mem[ii].file_pointer =  buffer;
+  mem[ii].chunk_pointer =  buffer;
   ii = (ii + 1) % K;
   full = (ii == ri);
 

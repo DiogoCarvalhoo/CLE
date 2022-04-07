@@ -3,6 +3,7 @@
  *
  *  \brief Problem name: Count Words.
  *
+ *  In this file the functions to save/get the the counters of each file are implemented.
  *  Synchronization based on monitors.
  *  Both threads and the monitor are implemented using the pthread library which enables the creation of a
  *  monitor of the Lampson / Redell type.
