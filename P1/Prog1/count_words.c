@@ -36,7 +36,7 @@ static void *worker(void *par);
 static void processChunk(struct ChunkInfo * chunkinfo, int * total_num_of_words, int * num_of_words_starting_with_vowel_chars, int * num_of_words_ending_with_consonant_chars);
 
 /** \brief worker threads return status array */
-int statusWorkers[N];
+int *statusWorkers;
 
 /** \brief main thread return status */
 int statusProd;
@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
 
     // Assign ids to each worker thread
     int num_of_threads = atoi(argv[1]);     // Get the number of threads from the program first argument
+    statusWorkers = malloc(num_of_threads * sizeof(int));   // Allocate memory to save the status of each worker
     pthread_t tIdWorkers[num_of_threads];
     unsigned int workers[num_of_threads];
     for (int i = 0; i < num_of_threads; i++)
@@ -99,7 +100,6 @@ int main(int argc, char *argv[])
         // Get file size
         fseek(fpointer, 0, SEEK_END);
         int size_of_file = ftell(fpointer);
-        printf("File size: %d\n", size_of_file);
 
         fseek(fpointer, 0, SEEK_SET);           // Seek file to the start
         int number_of_processed_bytes = 0;      // Variable to also keep track of the initial position of the current chunk

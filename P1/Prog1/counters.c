@@ -44,7 +44,7 @@ static int num_of_files;
 static struct FileCounters * mem;
 
 /** \brief workers threads return status array */
-extern int statusWorkers[N];
+extern int *statusWorkers;
 
 /** \brief locking flag which warrants mutual exclusion inside the monitor */
 static pthread_mutex_t accessCR = PTHREAD_MUTEX_INITIALIZER;

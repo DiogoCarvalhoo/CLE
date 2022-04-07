@@ -38,7 +38,7 @@ struct ChunkInfo {
 extern int statusProd;
 
 /** \brief consumer threads return status array */
-extern int statusWorkers[N];
+extern int *statusWorkers;
 
 /** \brief storage region for chunks */
 static struct ChunkInfo mem[K];
