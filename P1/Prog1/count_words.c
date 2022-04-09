@@ -222,6 +222,9 @@ static void *worker(void *par) {
         int num_of_words_ending_with_consonant_chars = 0;
         processChunk(&chunkinfo, &total_num_of_words, &num_of_words_starting_with_vowel_chars, &num_of_words_ending_with_consonant_chars);
         
+        // Free the memory of the buffer
+        free(chunkinfo.chunk_pointer);
+
         // Save chunk of data
         saveResults(id, chunkinfo.fileId, total_num_of_words, num_of_words_starting_with_vowel_chars, num_of_words_ending_with_consonant_chars);
     }
