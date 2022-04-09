@@ -55,24 +55,26 @@ int main(int argc, char *argv[])
 {   
     setlocale(LC_ALL, "en_US.UTF-8");
     int *status_p;
-    // Timer
-    double t0, t1, t2;
-    t2 = 0.0;
 
-    // Save filenames in the shared region and initialize counters to 0
+    /* Save filenames in the shared region and initialize counters to 0 */
+
     char *filenames[argc-2];
     for(int i=0; i<argc-2; i++) filenames[i] = argv[i+2];
     storeFileNames(argc-2, filenames);
 
-    // Assign ids to each worker thread
+    /* measure time */
+
+    double t0, t1; 
+    t0 = ((double) clock ()) / CLOCKS_PER_SEC;
+
+    /* generate worker threads */
+
     int num_of_threads = atoi(argv[1]);     // Get the number of threads from the program first argument
     statusWorkers = malloc(num_of_threads * sizeof(int));   // Allocate memory to save the status of each worker
     pthread_t tIdWorkers[num_of_threads];
     unsigned int workers[num_of_threads];
     for (int i = 0; i < num_of_threads; i++)
         workers[i] = i;
-
-    /* generate worker threads */
     
     for (int i = 0; i < num_of_threads; i++)
     if (pthread_create (&tIdWorkers[i], NULL, worker, &workers[i]) != 0)                              /* thread worker */
@@ -82,13 +84,12 @@ int main(int argc, char *argv[])
 
     /* generate the chunks of each file and put in FIFO */
     
-    t0 = ((double) clock ()) / CLOCKS_PER_SEC;
     // Iterate over all files passed by arguments
     for(int i=0;i<argc-2;i++){
 
         FILE * fpointer;
         unsigned char byte;        // Variable used to store each byte of the file  
-        unsigned char *character;  // Initialization of variable used to store the char (singlebyte or multibyte)
+        unsigned char *character;  // Variable used to store the char (singlebyte or multibyte)
 
         // Open file
         fpointer = fopen(filenames[i], "r");
@@ -170,13 +171,13 @@ int main(int argc, char *argv[])
         fclose(fpointer);
     }
 
-    /* Save a struct in fifo for each thread to know that there are no more chunks to process */
+    /* save a struct in fifo for each thread to know that there are no more chunks to process */
 
     for (int i = 0; i < num_of_threads; i++) {
         endChunk();
     }
     
-   /* waiting for the termination of the intervening worker threads */
+    /* waiting for the termination of the intervening worker threads */
 
     for (int i = 0; i < num_of_threads; i++)
     { if (pthread_join (tIdWorkers[i], (void *) &status_p) != 0)                                       /* thread producer */
@@ -187,13 +188,14 @@ int main(int argc, char *argv[])
         printf ("its status was %d\n", *status_p);
     }
 
-    t1 = ((double) clock ()) / CLOCKS_PER_SEC;
-    t2 += t1 - t0;
+    /* measure time */
+
+    t1 = (((double) clock ()) / CLOCKS_PER_SEC ) - t0;
 
     /* print final results */
 
     printResults();
-    printf("\nElapsed time = %.6f s\n", t2);
+    printf("\nElapsed time = %.6f s\n", t1);
 }
 
 
@@ -202,7 +204,7 @@ int main(int argc, char *argv[])
  *
  *  Its role is to get chunks of data and count the words. After that, it incrementes the counters in shared region.
  *
- *  \param par pointer to application defined producer identification
+ *  \param par pointer to application defined worker identification
  */
 static void *worker(void *par) {
     unsigned int id = *((unsigned int *) par);      // worker id
