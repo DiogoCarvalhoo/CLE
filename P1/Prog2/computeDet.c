@@ -105,8 +105,9 @@ int main(int argc, char *argv[])
 
     /* measure time */
 
-    double t0, t1; 
-    t0 = ((double) clock ()) / CLOCKS_PER_SEC;
+    struct timespec start, finish;
+    double elapsed;
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     /* generate worker threads */
 
@@ -175,8 +176,10 @@ int main(int argc, char *argv[])
     }
 
     /* measure time */
-
-    t1 = (((double) clock ()) / CLOCKS_PER_SEC ) - t0;
+    
+    clock_gettime(CLOCK_MONOTONIC, &finish);
+    elapsed = (finish.tv_sec - start.tv_sec);
+    elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
 
     /* print final results */
 
@@ -185,7 +188,7 @@ int main(int argc, char *argv[])
         printf("Determinant: %.3e \n\n", matrixDeterminants[matrix_id]);
     }
 
-    printf ("\nElapsed time = %.6f s\n", t1);
+    printf ("\nElapsed time = %.6f s\n", elapsed);
 }
 
 
@@ -229,6 +232,8 @@ static void *worker(void *par) {
         
         // Save result
         matrixDeterminants[matrixinfo.matrix_id - 1] = determinant;
+
+        printf("Matrix %d processada pela thread %d\n", matrixinfo.matrix_id, id);
     }
 
     statusWorkers[id] = EXIT_SUCCESS;
