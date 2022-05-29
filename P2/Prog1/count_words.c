@@ -5,6 +5,9 @@
  *
  *  Concurrency based on Message Passage Interface (MPI).
  *
+ *  How to compile: mpicc -Wall -o count_words count_words.c auxiliar_functions.c counters.c
+ *  How to run: mpiexec -n 4 ./count_words text0.txt text1.txt text2.txt text3.txt text4.txt
+ *
  *  \author Diogo Filipe Amaral Carvalho - 92969 - April 2022
  *  \author Rafael Ferreira Baptista - 93367 - April 2022
  */
@@ -27,24 +30,24 @@
 
 /** \brief struct to store the information of one chunk*/
 struct ChunkInfo {
-    int file_id;                     /* file identifier */  
-    int chunk_size;                  /* Number of bytes of the chunk */
-    unsigned char* chunk_info;       /* Pointer to the start of the chunk */
+    int file_id;                                    /* file identifier */  
+    int chunk_size;                                 /* Number of bytes of the chunk */
+    unsigned char* chunk_info;                      /* Pointer to the start of the chunk */
 };
 
 /** \brief struct to store the results of a file */
 struct FileResults {
-   int file_id;                                       /* file identifier */  
-   int total_num_of_words;                            /* Number of total words */
-   int num_of_words_starting_with_vowel_chars;        /* Number of words starting with vowel chars */
-   int num_of_words_ending_with_consonant_chars;      /* Number of words ending with consonant chars */
+   int file_id;                                     /* file identifier */  
+   int total_num_of_words;                          /* Number of total words */
+   int num_of_words_starting_with_vowel_chars;      /* Number of words starting with vowel chars */
+   int num_of_words_ending_with_consonant_chars;    /* Number of words ending with consonant chars */
 };
-
-/** \brief worker life cycle routine */
-static void worker(int rank);
 
 /** \brief dispatcher life cycle routine */
 static void dispatcher(char *filenames[], int number_of_files);
+
+/** \brief worker life cycle routine */
+static void worker(int rank);
 
 /** \brief count the words inside a chunk */
 static void processChunk(struct ChunkInfo * chunkinfo, int * total_num_of_words, int * num_of_words_starting_with_vowel_chars, int * num_of_words_ending_with_consonant_chars);
@@ -77,48 +80,55 @@ int main(int argc, char *argv[])
 
     number_of_workers = size - 1;   // Number of worker processes
 
-    if (rank == 0) {
-
-
-        /* measure time */
-
-        struct timespec start, finish;
-        double elapsed;
-        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-
-        /* Read File Names */
-
-        char *filenames[argc-1];
-
-        for (int i = 1; i<argc; i++) {
-            filenames[i-1] = argv[i];
-        }
-
-
-        /* Launch Dispatcher */
-
-        dispatcher(filenames, argc-1);
-
-
-        /* measure time */
-
-        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
-        elapsed = (finish.tv_sec - start.tv_sec);
-        elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
-
-        /* print final results */
-
-        printResults();
-        printf("\nElapsed time = %.6f s\n", elapsed);
-
-
+    if (number_of_workers <= 0) {
+        fprintf(stderr, "You must have at least 1 worker, meaning, n value must be higher than 1. \n"); 
+        MPI_Finalize();
+        return EXIT_FAILURE;
     } else {
-        
-        /* Launch worker life cycle */
-        
-        worker(rank);
-    }
 
+        if (rank == 0) {
+
+
+            /* measure time */
+
+            struct timespec start, finish;
+            double elapsed;
+            clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+
+            /* Read File Names */
+
+            char *filenames[argc-1];
+
+            for (int i = 1; i<argc; i++) {
+                filenames[i-1] = argv[i];
+            }
+
+
+            /* Launch Dispatcher */
+
+            dispatcher(filenames, argc-1);
+
+
+            /* measure time */
+
+            clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
+            elapsed = (finish.tv_sec - start.tv_sec);
+            elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+
+            /* print final results */
+
+            printResults();
+            printf("\nElapsed time = %.6f s\n", elapsed);
+
+
+        } else {
+            
+            /* Launch worker life cycle */
+            
+            worker(rank);
+        }
+    }
+    
     MPI_Finalize();
     return EXIT_SUCCESS;
     
@@ -136,8 +146,17 @@ int main(int argc, char *argv[])
  */
 static void dispatcher(char *filenames[], int number_of_files) {
 
+    MPI_Request reqSnd[number_of_workers], reqRec[number_of_workers];
+    bool msgRec[number_of_workers];
+    struct FileResults results[number_of_workers];
+    int recVal = 0;
+
+    for (int i = 0; i < number_of_workers; i++) {
+        msgRec[i] = false;
+    } 
+
     int current_worker_to_receive_work = 1;  // Id of worker that will receive next chunk to process
-    int number_of_chunks_sent = 0;           // Number of chunks sent to workers
+    int number_of_chunks_sent = 0;           // Number of chunks sent to workers    
 
     /* Initalize counters to 0 for each file */
 
@@ -215,42 +234,44 @@ static void dispatcher(char *filenames[], int number_of_files) {
             /* Seek file to the initial position of the chunk */
             fseek(fpointer, number_of_processed_bytes, SEEK_SET);
 
-            /* Create new structure to keep information of the chunk */
-            struct ChunkInfo newChunk;
-            newChunk.file_id = i;
-            newChunk.chunk_size = size_of_current_chunk+size_of_current_char;
-            newChunk.chunk_info = (unsigned char*) malloc(size_of_current_chunk+size_of_current_char);
-                        
-            int s = fread(newChunk.chunk_info, size_of_current_chunk+size_of_current_char, 1, fpointer);
+            /* Array with chunk information - the first element will be the file id, then it will be the chunk data */
+            unsigned char * chunk = (unsigned char*) malloc(size_of_current_chunk+size_of_current_char+sizeof(int));
+            chunk[0] = i;
+            int s = fread(chunk+1, size_of_current_chunk+size_of_current_char, 1, fpointer);
             if (s != 1)
                 printf("Error creating chunk buffer.");
 
-            /* Send Chunk to Worker */
-            MPI_Send(&newChunk, sizeof(struct ChunkInfo), MPI_BYTE, current_worker_to_receive_work, 0, MPI_COMM_WORLD);
-            MPI_Send(newChunk.chunk_info, newChunk.chunk_size, MPI_BYTE, current_worker_to_receive_work, 0, MPI_COMM_WORLD);
-
+            MPI_Isend(chunk, size_of_current_chunk+size_of_current_char+sizeof(int), MPI_BYTE, current_worker_to_receive_work, 1, MPI_COMM_WORLD, &reqSnd[current_worker_to_receive_work-1]);
+            
             /* Update current_worker_to_receive_work and number_of_chunks_sent variables */
             current_worker_to_receive_work = (current_worker_to_receive_work%number_of_workers)+1;
             number_of_chunks_sent += 1;
 
             number_of_processed_bytes += size_of_current_chunk;
 
-            if (number_of_chunks_sent == number_of_workers) {
-                // Receive results from workers
+            if (number_of_chunks_sent >= number_of_workers) {
+                // Check if results from workers are available
 
                 for (int i = 1; i <= number_of_workers; i++) {
 
-                    // Receive result
-                    struct FileResults results;
+                    recVal = 0;
 
-                    MPI_Recv(&results, sizeof(struct FileResults), MPI_BYTE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    if (!msgRec[i-1]) {
+                        MPI_Irecv(&results[i-1], sizeof(struct FileResults), MPI_BYTE, i, 0, MPI_COMM_WORLD, &reqRec[i-1]);
+                        msgRec[i-1] = true;
+                    }
 
-                    // Save results
-                    saveResults(results.file_id, results.total_num_of_words, results.num_of_words_starting_with_vowel_chars, results.num_of_words_ending_with_consonant_chars);
+                    MPI_Test(&reqRec[i-1], &recVal, MPI_STATUS_IGNORE);
+
+                    if (recVal) {
+                        // Save results
+                        saveResults(results[i-1].file_id, results[i-1].total_num_of_words, results[i-1].num_of_words_starting_with_vowel_chars, results[i-1].num_of_words_ending_with_consonant_chars);
+                    
+                        number_of_chunks_sent-= 1;
+                        msgRec[i-1] = false;
+                    }
                 }
 
-                // Reset number_of_chunks
-                number_of_chunks_sent = 0;
             }
 
         }
@@ -260,32 +281,37 @@ static void dispatcher(char *filenames[], int number_of_files) {
     }
 
     /* Receive results of last chunks from workers */
-    if (number_of_chunks_sent > 0) {
+    while (number_of_chunks_sent > 0) {
 
-        for (int i = 1; i <= number_of_chunks_sent; i++) {
+        for (int i = 1; i <= number_of_workers; i++) {
 
-            // Receive result
-            struct FileResults results;
+            recVal = 0;
 
-            MPI_Recv(&results, sizeof(struct FileResults), MPI_BYTE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            if (!msgRec[i-1]) {
+                MPI_Irecv(&results[i-1], sizeof(struct FileResults), MPI_BYTE, i, 0, MPI_COMM_WORLD, &reqRec[i-1]);
+                msgRec[i-1] = true;
+            }
 
-            // Save results
-            saveResults(results.file_id, results.total_num_of_words, results.num_of_words_starting_with_vowel_chars, results.num_of_words_ending_with_consonant_chars);
+            MPI_Test(&reqRec[i-1], &recVal, MPI_STATUS_IGNORE);
+            if (recVal) {
+
+                // Save results
+                saveResults(results[i-1].file_id, results[i-1].total_num_of_words, results[i-1].num_of_words_starting_with_vowel_chars, results[i-1].num_of_words_ending_with_consonant_chars);
+            
+                number_of_chunks_sent-=1;
+                msgRec[i-1] = false;
+            }
         }
             
-    }
-        
+    }        
 
     /* Send message to each process to know that there are no more chunks to process */
 
     for (int i = 1; i <= number_of_workers; i++) {
-        struct ChunkInfo newChunk;
-        newChunk.file_id = -1;
-        newChunk.chunk_size = -1;
-
+        unsigned char* lastChunk = malloc(sizeof(unsigned char));
+        lastChunk[0] = 255;
         // Send Special Chunk to Worker
-        MPI_Send(&newChunk, sizeof(struct ChunkInfo), MPI_BYTE, i, 0, MPI_COMM_WORLD);
-
+        MPI_Isend(lastChunk, sizeof(unsigned char), MPI_BYTE, i, 1, MPI_COMM_WORLD, &reqSnd[i-1]);
     }    
 
 }
@@ -303,20 +329,31 @@ static void dispatcher(char *filenames[], int number_of_files) {
  *  \param rank worker process identification
  */
 static void worker(int rank) {
+
+    MPI_Request reqSnd;
     
     while (true) {
 
-        // Get chunk of data
+        // Struct to save information of the chunk
         struct ChunkInfo newChunk;
 
-        MPI_Recv(&newChunk, sizeof(struct ChunkInfo), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // Get message size
+        MPI_Status status;
+        MPI_Probe(0, 1, MPI_COMM_WORLD, &status);
+        int message_size;
+        MPI_Get_count(&status, MPI_BYTE, &message_size);
+
+        // Alocate memory to read the chunk information
+        newChunk.chunk_info = (unsigned char*) malloc(message_size);
+        MPI_Recv(newChunk.chunk_info, message_size, MPI_BYTE, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         // Checks if it is the chunk that tells that there are no more chunks to process
-        if (newChunk.file_id == -1) break;
+        if (newChunk.chunk_info[0] == 255) break;
 
-        newChunk.chunk_info = (unsigned char*) malloc(newChunk.chunk_size);
-
-        MPI_Recv(newChunk.chunk_info, newChunk.chunk_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // Convert info to the struct ChunkInfo
+        newChunk.file_id = newChunk.chunk_info[0];
+        newChunk.chunk_info = newChunk.chunk_info + 1;
+        newChunk.chunk_size = message_size - sizeof(int);
 
         // Process chunk of data
         int total_num_of_words = 0;
@@ -326,7 +363,7 @@ static void worker(int rank) {
         processChunk(&newChunk, &total_num_of_words, &num_of_words_starting_with_vowel_chars, &num_of_words_ending_with_consonant_chars);
 
         // Free the memory of the buffer
-        free(newChunk.chunk_info);
+        free(newChunk.chunk_info-1);
 
         // Send results back to dispatcher
         struct FileResults results;
@@ -335,7 +372,7 @@ static void worker(int rank) {
         results.num_of_words_starting_with_vowel_chars = num_of_words_starting_with_vowel_chars;
         results.num_of_words_ending_with_consonant_chars = num_of_words_ending_with_consonant_chars;
         
-        MPI_Send(&results, sizeof(struct FileResults), MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+        MPI_Isend(&results, sizeof(struct FileResults), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &reqSnd);
     }
 
 }
