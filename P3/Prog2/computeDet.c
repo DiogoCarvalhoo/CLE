@@ -430,7 +430,9 @@ static void computeDeterminant(struct MatrixInfo * matrixinfo, double * determin
         }
     }
 
+    
     // Transform Matrix in a upper triangular matrix
+    /*
     for (int l = 0; l < order_of_matrix-1; l++) {
         if (matrix_coeficients[l][l] != 0.0) {
             
@@ -459,6 +461,44 @@ static void computeDeterminant(struct MatrixInfo * matrixinfo, double * determin
                     temp = matrix_coeficients[i][l - 1];
                     matrix_coeficients[i][l - 1] = matrix_coeficients[i][columnToChange - 1];
                     matrix_coeficients[i][columnToChange - 1] = temp;
+                }
+            }
+
+        }
+    }
+    */
+
+    // Transform Matrix in a lower triangular matrix
+    for (int l = 0; l < order_of_matrix-1; l++) {
+        if (matrix_coeficients[l][l] != 0.0) {
+            
+            // for each of the elements of this line l
+            for(int k=l+1; k<order_of_matrix; k++){
+                double term=matrix_coeficients[l][k]/ matrix_coeficients[l][l];
+                // for each element of the column k
+                for(int j=0; j< order_of_matrix; j++){
+                    matrix_coeficients[j][k]=matrix_coeficients[j][k]-term*matrix_coeficients[j][l];
+                }
+            }
+
+        } else {
+            // Find column != 0.0 to be changed
+            int columnToChange = -1;
+            for (int j=l+1; j<order_of_matrix; j++) {
+                if (matrix_coeficients[l][j] != 0.0) {
+                    columnToChange = j;
+                }
+            }
+
+            if (columnToChange == -1) {
+                *determinant = 0;
+                break;
+            } else {
+                int temp;
+                for (int i = 0; i < order_of_matrix; ++i) {
+                    temp = matrix_coeficients[l-1][i];
+                    matrix_coeficients[l-1][i] = matrix_coeficients[columnToChange - 1][i];
+                    matrix_coeficients[columnToChange - 1][i] = temp;
                 }
             }
 
