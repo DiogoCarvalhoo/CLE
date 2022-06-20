@@ -165,12 +165,31 @@ int main (int argc, char **argv)
   dim3 grid (gridDimX, gridDimY, gridDimZ);
   dim3 block (blockDimX, blockDimY, blockDimZ);
 
+  /*
+  block no caso 32 sao 32 testar para isto
+  32 - 1
+  16 - 2
+  8 - 4
+  4 - 8
+  2 - 16
+  1 - 32
+
+
+  grid no caso 512
+  512 - 1
+  256 - 2
+  32 - 16
+  16 - 32
+  2 - 256
+  1 - 512
+  */
+
   if ((gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ) != n_sectors)
      { printf ("Wrong configuration!\n");
        return 1;
      }
   (void) get_delta_time ();
-  calculate_determinant_cuda_kernel <<<grid, block, sector_size-1>>> (device_mat, device_determinants, n_sectors, sector_size);
+  calculate_determinant_cuda_kernel <<<grid, block>>> (device_mat, device_determinants, n_sectors, sector_size);
   CHECK (cudaDeviceSynchronize ());                            // wait for kernel to finish
   CHECK (cudaGetLastError ());                                 // check for kernel errors
   printf("The CUDA kernel <<<(%d,%d,%d), (%d,%d,%d)>>> took %.3e seconds to run\n",
@@ -189,25 +208,10 @@ int main (int argc, char **argv)
   printf ("The transfer of %d bytes from the device to the host took %.3e seconds\n",
           (int) mat_area_size, get_delta_time ());
 
-  for (int i = 0; i < number_of_matrix; i++) {
-    printf("Processing matrix %d \n", i + 1);
-    
-    /*
-    for (int k = 0; k < order_of_matrix; k++) {
-      for (int l = 0; l < order_of_matrix; l++) {
-        printf("%6.2f ", *(modified_mat + (k * order_of_matrix) + l + (i * order_of_matrix * order_of_matrix) ) );
-      }
-      printf("\n");
-    }
-    */
-    
-    printf("Determinant: %.3e \n\n", determinants[i]);
-  }
-
   /* free device global memory */
 
   CHECK (cudaFree (device_mat));
-  //CHECK (cudaFree (device_sector_number));
+  CHECK (cudaFree (device_determinants));
 
   /* reset the device */
 
@@ -225,14 +229,21 @@ int main (int argc, char **argv)
   }
   printf("The cpu kernel took %.3e seconds to run (single core)\n",get_delta_time ());
 
+  /* show final results */
+
+  for (int i = 0; i < number_of_matrix; i++) {
+    printf("Processing matrix %d \n", i + 1);
+    printf("GPU Determinant: %.3e \nCPU Determinant: %.3e \n\n", determinants[i], cpu_determinants[i]);
+  }
+
   /* compare results */
   
   for(int i = 0; i < number_of_matrix; i++) {
-    if (fabs(determinants[i] - cpu_determinants[i]) > 0.0001f)
-       { 
-        printf ("Mismatch in matrix %d. GPU calculated %.4e CPU calculated %.4e \n", i, determinants[i], cpu_determinants[i]);
-        exit(1);
-       }
+    if (fabs(determinants[i] / cpu_determinants[i]) > 1.0001 || fabs(determinants[i] / cpu_determinants[i]) < 0.9999 )
+      { 
+      printf ("Mismatch in matrix %d. GPU calculated %.4e CPU calculated %.4e \n", i, determinants[i], cpu_determinants[i]);
+      exit(1);
+      }
   }
   printf ("All is well!\n");
 
@@ -298,6 +309,7 @@ static void calculate_determinant_cpu_kernel (double * matrix_pointer, double * 
   for(int l = 0; l < order_of_matrix; l++){
       *determinant = *determinant*matrix_coeficients[l][l];
   }
+
 }
 
 __global__ static void calculate_determinant_cuda_kernel (double * __restrict__ mat, double * __restrict__ determinants,
@@ -311,40 +323,50 @@ __global__ static void calculate_determinant_cuda_kernel (double * __restrict__ 
   if (idx >= n_sectors)
      return;                                             // safety precaution
 
-  /* array to store the terms to update the coefficients in each iteration */
-  extern __shared__ double term[];
-
   /* adjust pointers */
 
   mat += bkx * sector_size * sector_size;
-  mat += idx;
 
   /* start the iteration cycle */
+  
+  for (int i = 0; i<=idx; i++) {
 
-  for (int i = 0; i<sector_size-1; i++) {
+    // If the diagonal coefficient is 0 we need to find a column to change their value
+    if (mat[i*sector_size + i] == 0) {
+      int columnToChange = -1;
 
-    // If it is the first column of the iteration
-    if (i == idx) {
-      // Calculate the terms for each line and save them in the shared array
-      for (int k = i+1; k < sector_size; k++) {
-        term[k-1] = *(mat + (k*sector_size)) / *(mat + (i * sector_size));
+      for (int j=i+1; j<sector_size; j++) {
+        if (mat[i*sector_size + j] != 0.0) {
+          columnToChange = j;
+        }
       }
+
+      if (columnToChange == -1) {
+          determinants[bkx] = 0;
+          break;
+      } else {
+          double temp = mat[i + idx * sector_size];
+          mat[i + idx * sector_size] = mat[columnToChange + idx * sector_size];
+          mat[columnToChange + idx * sector_size] = temp;
+      }
+
+      __syncthreads(); // Synchronizing all threads to ensure that all threads compute the same term value
+    }
+
+    // Get the terms and apply the multiplication and somation of each element in column
+    for (int line = i+1; line<sector_size; line++) {
+      
+      double term = - mat[line*sector_size + i] / mat[i*sector_size + i];
+
+      __syncthreads(); // Synchronizing all threads to ensure that all threads compute the same term value
+
+      // Update the values of all the coefficients in the column
+      mat[line*sector_size + idx] = mat[line*sector_size + idx] + term * mat[i*sector_size + idx];
     }
     
-    __syncthreads(); // Synchronizing all threads to get the current terms
-
-    // Update the values of all the coefficients in the column
-    for (int k = i+1; k<sector_size; k++) {
-      *(mat + (k * sector_size)) = *(mat + (k * sector_size)) - term[k-1] * (*(mat + (i * sector_size)));
-    }
-    
-  }
-
-  // Thread 0 is responsible to calculate the determinant of this matrix
-  if (idx == 0) {
-    for(int l = 0; l < sector_size; l++){
-        double coef = mat[ (l*sector_size) + l ];
-        determinants[bkx] = determinants[bkx] * coef;
+    if (idx == i) {
+      double coef = mat[ (idx*sector_size) + idx ];
+      determinants[bkx] = determinants[bkx] * coef;
     }
   }
 

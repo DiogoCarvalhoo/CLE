@@ -1,4 +1,4 @@
-CU_APPS=cryptCuda cryptCudaStride
+CU_APPS=cryptCudaStride
 
 all: ${CU_APPS}
 
