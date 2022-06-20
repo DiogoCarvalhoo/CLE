@@ -1,4 +1,4 @@
-CU_APPS=cryptCudaStride
+CU_APPS=computeDet
 
 all: ${CU_APPS}
 
