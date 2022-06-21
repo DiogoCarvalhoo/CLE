@@ -197,13 +197,8 @@ int main (int argc, char **argv)
 
   /* copy kernel result back to host side */
 
-  double *modified_mat;
   double *determinants;
-
-  //modified_device_sector_data = (unsigned int *) malloc (sector_data_size);
-  modified_mat = (double *) malloc (mat_area_size);
   determinants = (double *) malloc (number_of_matrix*sizeof(double));
-  CHECK (cudaMemcpy (modified_mat, device_mat, mat_area_size, cudaMemcpyDeviceToHost));
   CHECK (cudaMemcpy (determinants, device_determinants, number_of_matrix*sizeof(double), cudaMemcpyDeviceToHost));
   printf ("The transfer of %d bytes from the device to the host took %.3e seconds\n",
           (int) mat_area_size, get_delta_time ());
@@ -250,7 +245,8 @@ int main (int argc, char **argv)
   /* free host memory */
 
   free (host_mat);
-  free (modified_mat);
+  free (host_determinants);
+  free (determinants);
 
   return 0;
 }
