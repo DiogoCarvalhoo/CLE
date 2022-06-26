@@ -1,5 +1,15 @@
 /**
- *   Tomás Oliveira e Silva, November 2017
+ *  \file computeDet.c (implementation file)
+ *
+ *  \brief Problem name: Compute Matrix Determinant.
+ *
+ *  Concurrency based on CUDA with the approach of calculation of the determinant by rows, and comparison to CPU version.
+ *
+ *  How to compile: make all
+ *  How to run: ./computeDet -f mat128_32.bin
+ *
+ *  \author Diogo Filipe Amaral Carvalho - 92969 - June 2022
+ *  \author Rafael Ferreira Baptista - 93367 - June 2022
  */
 
 #include <time.h>
@@ -15,10 +25,15 @@
 
 /* allusion to internal functions */
 
+/** \brief function to compute determinant of a matrix in cpu */
 static void calculate_determinant_cpu_kernel (double * matrix_pointer, double * determinant,
                                               unsigned int order_of_matrix);
+
+/** \brief cuda kernel function to compute determinant of a matrix in gpu */
 __global__ static void calculate_determinant_cuda_kernel (double * __restrict__ mat, double * __restrict__ determinants,
                                                           unsigned int n_sectors, unsigned int sector_size);
+
+/** \brief function to get the time elapsed */    
 static double get_delta_time(void);
 
 /** \brief function responsible to present the program usage */
@@ -30,15 +45,14 @@ static void printUsage(char *cmdName);
 
 int main (int argc, char **argv)
 {
-  printf("%s Starting2...\n", argv[0]);
+  printf("%s Starting...\n", argv[0]);
   if (sizeof (unsigned int) != (size_t) 4)
      return 1;                                             // it fails with prejudice if an integer does not have 4 bytes
-
 
   /* process command line arguments */
 
   int opt;            /* selected option */
-  char *fName;   /* file name (initialized to "no name" by default) */
+  char *fName;        /* file name */
 
   opterr = 0;
   do
@@ -109,7 +123,7 @@ int main (int argc, char **argv)
   printf("Using Device %d: %s\n", dev, deviceProp.name);
   CHECK (cudaSetDevice (dev));
 
-  /* create memory areas in host and device memory where the disk sectors data and sector numbers will be stored */
+  /* create memory areas in host and device memory where the matrices data and determinants will be stored */
 
   int mat_size = order_of_matrix * order_of_matrix * sizeof(double);
   size_t mat_area_size = number_of_matrix * mat_size;
@@ -131,9 +145,11 @@ int main (int argc, char **argv)
 
   (void) get_delta_time ();
 
+  // Read all the matrices from file
   if(fread(host_mat, mat_area_size, 1, fpointer) != 1)
       strerror(1);
   
+  // Initialize determinants as 1
   for (int i = 0; i<number_of_matrix; i++) {
     host_determinants[i] = 1;
   }
@@ -164,25 +180,6 @@ int main (int argc, char **argv)
 
   dim3 grid (gridDimX, gridDimY, gridDimZ);
   dim3 block (blockDimX, blockDimY, blockDimZ);
-
-  /*
-  block no caso 32 sao 32 testar para isto
-  32 - 1
-  16 - 2
-  8 - 4
-  4 - 8
-  2 - 16
-  1 - 32
-
-
-  grid no caso 512
-  512 - 1
-  256 - 2
-  32 - 16
-  16 - 32
-  2 - 256
-  1 - 512
-  */
 
   if ((gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ) != n_sectors)
      { printf ("Wrong configuration!\n");
@@ -251,6 +248,13 @@ int main (int argc, char **argv)
   return 0;
 }
 
+/**
+ * @brief function to compute determinant of a matrix in cpu
+ * 
+ * @param matrix_pointer 
+ * @param determinant 
+ * @param order_of_matrix 
+ */
 static void calculate_determinant_cpu_kernel (double * matrix_pointer, double * determinant,
                                               unsigned int order_of_matrix)
 {
@@ -308,6 +312,15 @@ static void calculate_determinant_cpu_kernel (double * matrix_pointer, double * 
 
 }
 
+/**
+ * @brief cuda kernel function to compute determinant of a matrix in gpu
+ * 
+ * @param mat 
+ * @param determinants 
+ * @param n_sectors 
+ * @param sector_size 
+ * @return * cuda 
+ */
 __global__ static void calculate_determinant_cuda_kernel (double * __restrict__ mat, double * __restrict__ determinants,
                                                           unsigned int n_sectors, unsigned int sector_size)
 {
@@ -325,7 +338,7 @@ __global__ static void calculate_determinant_cuda_kernel (double * __restrict__ 
 
   /* start the iteration cycle */
   
-  for (int i = 0; i<=idx; i++) {
+  for (int i = 0; i<sector_size; i++) {
 
     // If the diagonal coefficient is 0 we need to find a row to change their value
     if (mat[i*sector_size + i] == 0) {
@@ -349,7 +362,7 @@ __global__ static void calculate_determinant_cuda_kernel (double * __restrict__ 
       __syncthreads(); // Synchronizing all threads to ensure that all threads compute the same term value
     }
 
-    // Get the terms and apply the multiplication and somation of each element in column
+    // Get the terms and apply the multiplication and somation of each element in row
     for (int column = i+1; column<sector_size; column++) {
       
       double term = - mat[column + sector_size * i] / mat[i + sector_size * i];
@@ -359,7 +372,8 @@ __global__ static void calculate_determinant_cuda_kernel (double * __restrict__ 
       // Update the values of all the coefficients in the column
       mat[column + sector_size * idx] = mat[column + sector_size * idx] + term * mat[i + sector_size * idx];
     }
-    
+
+    // If it is the first row of this iteration
     if (idx == i) {
       double coef = mat[ (idx*sector_size) + idx ];
       determinants[bkx] = determinants[bkx] * coef;
@@ -368,6 +382,11 @@ __global__ static void calculate_determinant_cuda_kernel (double * __restrict__ 
 
 }
 
+/**
+ * @brief Get the elapsed time
+ * 
+ * @return double 
+ */
 static double get_delta_time(void)
 {
   static struct timespec t0,t1;
